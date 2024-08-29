@@ -1,0 +1,33 @@
+﻿@page "/"
+@page "/index"
+
+@inject IRepositorio  repositorio
+
+<AuthorizeView>
+    <Authorized>
+
+    </Authorized>
+    <NotAuthorized>
+
+        <div class="wrapper">
+            <a href="Login" class="btn btn-primary btn-lg"><span class="oi oi-account-login"></span> Iniciar Sesión</a>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+
+
+@code {
+
+
+    protected async override Task OnInitializedAsync()
+    {
+        var httpResponse = await repositorio.Get<HomePageDTO>("api/peliculas");
+
+        if (httpResponse.Error)
+        {
+            Console.WriteLine(httpResponse.HttpResponseMessage.StatusCode);
+        }
+
+    }
+}

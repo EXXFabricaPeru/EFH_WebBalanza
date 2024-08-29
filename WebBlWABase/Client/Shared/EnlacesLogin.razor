@@ -1,0 +1,7 @@
+﻿<AuthorizeView>
+    <Authorized>
+        <span>Bienvenido, ¡@context.User.Identity.Name! - @context.User.FindFirst("rol").Value</span>
+        <a href="Logout" class="nav-link btn btn-link"> Cerrar Sesión <span class="oi oi-account-logout"></span></a>
+    </Authorized>
+
+</AuthorizeView>

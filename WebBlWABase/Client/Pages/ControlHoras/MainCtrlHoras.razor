@@ -1,0 +1,548 @@
+﻿@page "/controlTiempos"
+@attribute [Authorize]
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IRepositorio repositorio
+@inject HttpClient Http
+@inject IMostrarMensajes mostrarMensajes
+
+<h1>Control de Tiempos</h1>
+<EditForm Model="Ctrhead">
+    <DataAnnotationsValidator />
+    <div class="form-group">
+        <label>Empleado:</label>
+        <div class="col-md-2 col-sm-3">
+            <InputText class="form-control" @bind-Value="@Ctrhead.Empleado" disabled="@alwaysDisabled" />
+            <ValidationMessage For="@(() => Ctrhead.Empleado)" />
+        </div>
+    </div>
+    <div class="form-row col-md-8">
+        <div class="form-group col">
+            <label>Orden Trabajo:</label>
+            <div class="form-inline">
+                <InputSelect class="form-control mb-2" @bind-Value="@Ctrhead.Serie">
+                    <option value="">--</option>
+                    @foreach (var item in Series)
+                    {
+                        @if (item.Code == Ctrhead.Serie)
+                        {
+                            <option selected value="@item.Code">@item.Name</option>
+                        }
+                        else
+                        {
+                            <option value="@item.Code">@item.Name</option>
+                        }
+                    }
+                </InputSelect>
+                <InputText class="form-control mb-2" @bind-Value="@Ctrhead.DocNum" @onfocusout="CargarOrden" />
+
+                <p>Tiempo Aprox.: @Ctrhead.Tiempo</p>
+
+
+            </div>
+        </div>
+        <div class="form-group col">
+            <label>Etapa:</label>
+            <div>
+                <InputSelect class="form-control" disabled="@disabled" ValueChanged="@((string value) => EtapaHasChanged(value))" ValueExpression="@(() => Ctrhead.Etapa)" Value="@Ctrhead.Etapa">
+                    <option value="">--</option>
+                    @foreach (var item in Etapas)
+                    {
+                        @if (item.Code == Ctrhead.Etapa)
+                        {
+                            <option selected value="@item.Code">@item.Name</option>
+                        }
+                        else
+                        {
+                            <option value="@item.Code">@item.Name</option>
+                        }
+                    }
+                </InputSelect>
+            </div>
+        </div>
+        <div class="form-group col">
+            <label> Maquina:</label>
+            <div class="">
+                <InputSelect class="form-control" disabled="@disabledEtapa" ValueChanged="@((string value) => MaquinaHasChanged(value))" ValueExpression="@(() => Ctrhead.Maquina)" Value="@Ctrhead.Maquina">
+                    <option value="">--</option>
+                    @foreach (var item in Maquinas)
+                    {
+                        @if (item.Code == Ctrhead.Maquina || Maquinas.Count == 1)
+                        {
+                            <option selected value="@item.Code">@item.Name</option>
+                        }
+                        else
+                        {
+
+                            <option value="@item.Code">@item.Name</option>
+
+                        }
+                    }
+                </InputSelect>
+            </div>
+        </div>
+    </div>
+    <div class="form-row col-md-12">
+        <div class="form-group col-lg-4 col-sm-4">
+            <label>Cliente:</label>
+            <div class="">
+                <InputText class="form-control" @bind-Value="@Ctrhead.Cliente" disabled="@alwaysDisabled" />
+            </div>
+        </div>
+        <div class="form-group col-lg-4 col-sm-4">
+            <label>Impresion:</label>
+            <div class="">
+                <InputText class="form-control" @bind-Value="@Ctrhead.Impresion" disabled="@alwaysDisabled" />
+            </div>
+        </div>
+        <div class="form-group col-lg-4 col-sm-4">
+            <label>Medida:</label>
+            <div class="">
+                <InputText class="form-control" @bind-Value="@Ctrhead.Medida" disabled="@alwaysDisabled" />
+            </div>
+        </div>
+    </div>
+
+    <div class="form-row col-md-12">
+        <div class="form-group col-lg-4 col-sm-4">
+            <label>Codigo Articulo:</label>
+            <div class="">
+                <InputText class="form-control" @bind-Value="@Ctrhead.ItemCode" disabled="@alwaysDisabled" />
+            </div>
+        </div>
+        <div class="form-group col-lg-8 col-sm-8">
+            <label>Descripción Producto terminado:</label>
+            <div class="">
+                <InputText class="form-control" @bind-Value="@Ctrhead.ItemName" disabled="@alwaysDisabled" />
+            </div>
+        </div>
+
+    </div>
+
+    <div class="form-row col-md-8">
+        <button type="button" class="btn btn-primary btn-lg btn-block" @onclick="AddIniciar" disabled="@disabledIniciar">Iniciar</button>
+    </div>
+    @if (DetallesHoras.Count > 0)
+    {
+        <div class="form-row  col-md-4">
+            <ListadoCtrHoras Detalle="DetallesHoras" />
+        </div>
+        <div class="form-row col-md-8">
+            <button type="button" class="btn btn-danger btn-lg btn-block" @onclick="AddFinalizar" disabled="@disabledFin">Finalizar</button>
+        </div>
+        @if (!(DetallesHoras.Count == 2))
+        {
+            <h3>Paradas:</h3>
+            <form class="form-inline">
+
+
+                @if (DetalleParadas.Count == 0 || DetalleParadas.Count % 2 == 0)
+                {
+                    <button type="button" class="btn btn-warning mb-2" @onclick="ActivarTipo" disabled="@disabledEtapa">Parar</button>
+
+                }
+                else
+                {
+                    <button type="button" class="btn btn-info mb-2" @onclick="AddSeguir">Seguir</button>
+
+                }
+                <div class="form-group ">
+                    <div>
+                        <InputSelect class="form-control" disabled="@disabledTipo" ValueChanged="@((string value) => ActivarMotivo(value))" ValueExpression="@(() => Ctrhead.TipoParada)" Value="@Ctrhead.TipoParada">
+
+                            @foreach (var item in TiposParada)
+                            {
+                                @if (item.Code == Ctrhead.TipoParada)
+                                {
+                                    <option selected value="@item.Code">@item.Name</option>
+                                }
+                                else
+                                {
+                                    <option value="@item.Code">@item.Name</option>
+                                }
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Motivo:</label>
+                    <div>
+                        <InputText class="form-control" @bind-Value="@Ctrhead.Motivo" @onfocusout="AddParar" disabled="@disabledMotivo" />
+                        <ValidationMessage For="@(() => Ctrhead.Motivo)" />
+                    </div>
+                </div>
+            </form>
+        }
+        <div class="form-row  col-md-6">
+            <ListadoCtrParadas Detalle="DetalleParadas" />
+        </div>
+    }
+</EditForm>
+
+<div class="form-row">
+    <button type="button" class="btn btn-primary mb-2" @onclick="AddSAP" disabled="@disabledEtapa">Grabar a SAP</button>
+</div>
+    @code{
+    private CtrHra_Head Ctrhead = new CtrHra_Head();
+    private bool disabled;
+    private bool alwaysDisabled;
+    private bool disabledEtapa;
+    private bool disabledIniciar;
+    private bool disabledFin;
+    private bool disabledTipo = true;
+    private bool disabledMotivo = true;
+    private List<GenericEnt> Maquinas = new List<GenericEnt>();
+    private List<GenericEnt> Etapas = new List<GenericEnt>();
+    private List<GenericEnt> TiposParada = new List<GenericEnt>();
+    public List<CtrHra_Detail> DetallesHoras = new List<CtrHra_Detail>();
+    public List<CtrHra_Parada> DetalleParadas = new List<CtrHra_Parada>();
+    private List<GenericEnt> Series = new List<GenericEnt>();
+    TimeSpan contador;
+    bool is_counting = false;
+
+
+    private async Task AddIniciar()
+    {
+        if (!(DetallesHoras.Count > 0))
+        {
+            CtrHra_Detail Detalle = new CtrHra_Detail();
+            Detalle.NroOrden = Ctrhead.NroOrden;
+            Detalle.Maquina = Ctrhead.Maquina;
+            Detalle.Etapa = Ctrhead.Etapa;
+            Detalle.Tipo = "01";
+            Detalle.Fecha = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day);
+            Detalle.Hora = DateTime.Now;
+            var httpResponse = await repositorio.Post("api/ctrlTime/detalle", Detalle);
+            if (httpResponse.Error)
+            {
+                var body = await httpResponse.GetBody();
+                await mostrarMensajes.MostrarMensajeError(body);
+            }
+            else
+            {
+                //BalanzaD.codigoInterno = httpResponse.Response.ToString();
+                disabledIniciar = true;
+                disabledFin = false;
+                BeginCount(0);
+                DetallesHoras.Add(Detalle);
+            }
+        }
+        else
+        {
+            await mostrarMensajes.MostrarMensajeError("Ya inicio");
+
+        }
+    }
+
+    private async Task ActivarTipo()
+    {
+        disabledTipo = false;
+    }
+
+    private async Task ActivarMotivo(string value)
+    {
+        Ctrhead.TipoParada = value;
+        Ctrhead.Motivo = "";
+
+        disabledMotivo = false;
+    }
+    private async Task AddFinalizar()
+    {
+        CtrHra_Detail Detalle = new CtrHra_Detail();
+        Detalle.NroOrden = Ctrhead.NroOrden;
+        Detalle.Maquina = Ctrhead.Maquina;
+        Detalle.Empleado = Ctrhead.Empleado;
+        Detalle.Etapa = Ctrhead.Etapa;
+        Detalle.Tipo = "02";
+        Detalle.Fecha = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day);
+        Detalle.Hora = DateTime.Now;
+
+
+        var httpResponse = await repositorio.Post("api/ctrlTime/detalle", Detalle);
+        if (httpResponse.Error)
+        {
+            var body = await httpResponse.GetBody();
+            await mostrarMensajes.MostrarMensajeError(body);
+        }
+        else
+        {
+            //BalanzaD.codigoInterno = httpResponse.Response.ToString();
+            disabledFin = true;
+            disabledMotivo = true;
+            is_counting = false;
+            DetallesHoras.Add(Detalle);
+        }
+    }
+
+    async Task BeginCount(int tiempo)
+    {
+        contador = new TimeSpan(0, tiempo, 0);
+
+        ResumeCount();
+    }
+
+    async Task ResumeCount()
+    {
+        is_counting = true;
+        while (is_counting)
+        {
+            await Task.Delay(1000);
+            if (is_counting)
+            {
+                contador = contador.Add(new TimeSpan(0, 0, 1));
+                Ctrhead.Tiempo = string.Format("{0}:{1}:{2}",
+           ((int) contador.TotalHours), contador.Minutes, contador.Seconds);
+                StateHasChanged();
+            }
+        }
+    }
+    private string GetDescParada(string codigo)
+    {
+
+        var listasum = TiposParada.Where(x => x.Code == codigo).ToList();
+        return listasum.Select(x => x.Name).FirstOrDefault();
+
+    }
+    private async Task AddParar()
+    {
+        if (DetallesHoras.Count == 1 && (DetalleParadas.Count % 2 == 0))
+        {
+            CtrHra_Parada DetPare = new CtrHra_Parada();
+            DetPare.Empleado = Ctrhead.Empleado;
+            DetPare.NroOrden = Ctrhead.NroOrden;
+            DetPare.Etapa = Ctrhead.Etapa;
+            DetPare.Maquina = Ctrhead.Maquina;
+            DetPare.TipoPara = Ctrhead.TipoParada;
+            DetPare.TipoDesc = GetDescParada(Ctrhead.TipoParada);
+            DetPare.MotivoPara = Ctrhead.Motivo;
+            DetPare.Tipo = "01";
+            DetPare.Fecha = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day);
+            DetPare.Hora = DateTime.Now;
+
+            var httpResponse = await repositorio.Post("api/ctrlTime/pare", DetPare);
+            if (httpResponse.Error)
+            {
+                var body = await httpResponse.GetBody();
+                await mostrarMensajes.MostrarMensajeError(body);
+            }
+            else
+            {
+                //BalanzaD.codigoInterno = httpResponse.Response.ToString();
+                if (TiposParada.Where(x => x.Name == Ctrhead.TipoParada && x.boolAux).Any())
+                    is_counting = false;
+                disabledFin = true;
+                disabledTipo = true;
+
+                disabledMotivo = true;
+                DetalleParadas.Add(DetPare);
+            }
+        }
+    }
+
+    private async Task AddSeguir()
+    {
+        if (DetallesHoras.Count == 1 && (DetalleParadas.Count % 2 != 0))
+        {
+            CtrHra_Parada DetPare = new CtrHra_Parada();
+            DetPare.Empleado = Ctrhead.Empleado;
+            DetPare.NroOrden = Ctrhead.NroOrden;
+            DetPare.Etapa = Ctrhead.Etapa;
+            DetPare.Maquina = Ctrhead.Maquina;
+            DetPare.TipoPara = Ctrhead.TipoParada;
+            DetPare.TipoDesc = GetDescParada(Ctrhead.TipoParada);
+            DetPare.MotivoPara = Ctrhead.Motivo;
+            DetPare.Tipo = "02";
+            DetPare.Fecha = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day);
+            DetPare.Hora = DateTime.Now;
+
+            var httpResponse = await repositorio.Post("api/ctrlTime/pare", DetPare);
+            if (httpResponse.Error)
+            {
+                var body = await httpResponse.GetBody();
+                await mostrarMensajes.MostrarMensajeError(body);
+            }
+            else
+            {
+                ResumeCount();
+                //BalanzaD.codigoInterno = httpResponse.Response.ToString();
+                disabledFin = false;
+                DetalleParadas.Add(DetPare);
+            }
+        }
+    }
+
+
+    private async Task AddSAP()
+    {
+        Bal_Det BalAux = new Bal_Det();
+        BalAux.codigoInterno = DetallesHoras[0].NroOrden;
+        BalAux.Etapa = DetallesHoras[0].Etapa;
+        BalAux.RecursoMaquina = DetallesHoras[0].Maquina;
+
+        var httpResponse = await repositorio.Post("api/ctrlTime/addEntrega", BalAux);
+        if (httpResponse.Error)
+        {
+            var body = await httpResponse.GetBody();
+            await mostrarMensajes.MostrarMensajeError(body);
+        }
+        else
+        {
+
+            await mostrarMensajes.MostrarMensajeExitoso("Registro Satisfactorio");
+        }
+    }
+
+    private async Task CargarOrden()
+    {
+        if (Ctrhead.DocNum != "" && int.TryParse(Ctrhead.DocNum, out _))
+        {
+            var httpResponse = await repositorio.Get<CtHr_MultiList>($"api/ctrlTime/{Ctrhead.Serie}/{Ctrhead.DocNum}/etapas");
+            if (httpResponse.Error)
+            {
+                Ctrhead.NroOrden = "";
+                var mensajeError = await httpResponse.GetBody();
+                await mostrarMensajes.MostrarMensajeError(mensajeError);
+            }
+            {
+                Ctrhead.NroOrden = httpResponse.Response.NroOrden;
+                Etapas = httpResponse.Response.Etapas;
+                Ctrhead.Impresion = httpResponse.Response.Impresion;
+                Ctrhead.Medida = httpResponse.Response.Medida;
+                Ctrhead.Cliente = httpResponse.Response.Cliente;
+                Ctrhead.ItemCode = httpResponse.Response.ItemCode;
+                Ctrhead.ItemName = httpResponse.Response.ItemName;
+                disabled = false;
+            }
+        }
+    }
+    private async Task EtapaHasChanged(string value)
+    {
+
+
+        Ctrhead.Etapa = value;
+        if (value == "")
+        {
+            Maquinas.Clear();
+            DetallesHoras.Clear();
+            DetalleParadas.Clear();
+        }
+        else
+        {
+            await LoadMaquinas(value);
+        }
+    }
+
+    private async Task MaquinaHasChanged(string value)
+    {
+        Console.WriteLine(value);
+        Ctrhead.Maquina = value;
+
+        if (value == string.Empty)
+        {
+
+            DetallesHoras.Clear();
+            DetalleParadas.Clear();
+            disabledIniciar = true;
+        }
+        else
+        {
+            disabledIniciar = false;
+            await LoadDetalles(Ctrhead.Etapa,value);
+        }
+
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        disabled = true;
+        disabledEtapa = true;
+        alwaysDisabled = true;
+        disabledIniciar = true;
+        disabledFin = true;
+        //await Task.Delay(2000);
+        await LoadTipoParadas();
+        await LoadSeries();
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        Ctrhead.Empleado = user.Identity.Name;
+
+    }
+    private async Task LoadSeries()
+    {
+        var httpResponse = await repositorio.Get<List<GenericEnt>>("api/balanza/series");
+        Series = httpResponse.Response;
+        Ctrhead.Serie = Series.Where(s => s.Name == DateTime.Now.Year.ToString()).Select(s => s.Code).FirstOrDefault();
+
+    }
+    private async Task LoadTipoParadas()
+    {
+        var httpResponse = await repositorio.Get<List<GenericEnt>>("api/ctrlTime/tipoParadas");
+        TiposParada = httpResponse.Response;
+    }
+
+    private async Task LoadMaquinas(string etapa)
+    {
+        var httpResponse = await repositorio.Get<CtHr_MultiList>($"api/ctrlTime/{Ctrhead.NroOrden}/{etapa}/detalleEtapa");
+        if (httpResponse.Error)
+        {
+            var mensajeError = await httpResponse.GetBody();
+            await mostrarMensajes.MostrarMensajeError(mensajeError);
+        }
+        {
+
+            Maquinas = httpResponse.Response.Maquinas;
+            Ctrhead.Maquina = Maquinas.First().Code;
+            disabledEtapa = false;
+
+            disabledIniciar = false;
+            await MaquinaHasChanged(Ctrhead.Maquina);
+
+        }
+    }
+    private async Task LoadDetalles(string etapa, string maquina)
+    {
+        var httpResponse = await repositorio.Get<CtHr_MultiList>($"api/ctrlTime/{Ctrhead.NroOrden}/{etapa}/{maquina}/detalleEtapa");
+        if (httpResponse.Error)
+        {
+            var mensajeError = await httpResponse.GetBody();
+            await mostrarMensajes.MostrarMensajeError(mensajeError);
+        }
+        {
+
+            //Maquinas = httpResponse.Response.Maquinas;
+
+            //MaquinaHasChanged(Maquinas[0].Code);
+            DetallesHoras.Clear();
+            DetalleParadas.Clear();
+            is_counting = false;
+            Ctrhead.Tiempo = "";
+            disabledEtapa = false;
+            disabledIniciar = false;
+            disabledFin = true;
+            if (httpResponse.Response.Detalles.Count > 0)
+            {
+
+                DetallesHoras = httpResponse.Response.Detalles;
+                disabledIniciar = true;
+                disabledFin = false;
+                if (httpResponse.Response.Paradas.Count > 0)
+                {
+                    DetalleParadas = httpResponse.Response.Paradas;
+                    Ctrhead.Motivo = DetalleParadas[0].MotivoPara;
+                    Ctrhead.TipoParada = DetalleParadas[0].TipoPara;
+                }
+                TimeSpan duration = DateTime.Now - DetallesHoras[0].Hora;
+
+                BeginCount(Convert.ToInt32(duration.TotalMinutes));
+            }
+
+        }
+    }
+    void Mensaje()
+    {
+        Console.WriteLine($"Prueba");
+    }
+
+}

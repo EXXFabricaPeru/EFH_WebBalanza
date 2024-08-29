@@ -1,0 +1,74 @@
+﻿
+<div class="top-row pl-4 navbar navbar-dark">
+    <a class="navbar-brand" href="">PACKPLAST Envolturas</a>
+    <button class="navbar-toggler" @onclick="ToggleNavMenu">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+</div>
+<AuthorizeView>
+    <Authorized>
+        <div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+            <ul class="nav flex-column">
+                <li class="nav-item px-3">
+                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                        <span class="oi oi-home" aria-hidden="true"></span> Index
+                    </NavLink>
+                </li>
+
+                <li class="nav-item px-3">
+                    <NavLink class="nav-link" href="balanza/X">
+                        <span class="oi oi-calculator" aria-hidden="true"></span> Balanza
+                    </NavLink>
+                    <ul>
+                        <li class="nav-item px-3">
+                            <NavLink class="nav-link" href="balanza/B">
+                                <span class="" aria-hidden="true"></span> Bobina
+                            </NavLink>
+                        </li>
+                        <li class="nav-item px-3">
+                            <NavLink class="nav-link" href="balanza/F">
+                                <span class="" aria-hidden="true"></span> Fardo
+                            </NavLink>
+                        </li>
+                        <li class="nav-item px-3">
+                            <NavLink class="nav-link" href="balanza/S">
+                                <span class="" aria-hidden="true"></span> Merma
+                            </NavLink>
+                        </li>
+                        <li class="nav-item px-3">
+                            <NavLink class="nav-link" href="balanza/R">
+                                <span class="" aria-hidden="true"></span> Refile
+                            </NavLink>
+                        </li>
+                        <li class="nav-item px-3">
+                            <NavLink class="nav-link" href="balanza/D">
+                                <span class="" aria-hidden="true"></span> Devoluciones
+                            </NavLink>
+                        </li>
+                    </ul>
+                </li>
+                <li class="nav-item px-3">
+                    <NavLink class="nav-link" href="controlTiempos">
+                        <span class="oi oi-clock" aria-hidden="true"></span> Control de Tiempos
+                    </NavLink>
+                    <ul>
+                        <li class="nav-item px-3">
+                            <NavLink class="nav-link" href="listadoControl">
+                                <span class="" aria-hidden="true"></span> Activas
+                            </NavLink>
+                        </li>
+                        </ul>
+                </li>
+
+            </ul>
+        </div>
+    </Authorized>
+</AuthorizeView>
+@code { bool collapseNavMenu = true;
+
+    string NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    } }

@@ -1,0 +1,808 @@
+﻿@page "/balanza/{tipoBalanza}"
+@attribute [Authorize]
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IRepositorio repositorio
+@inject HttpClient Http
+@inject IMostrarMensajes mostrarMensajes
+@inject IJSRuntime js
+@switch (TipoBalanza)
+{
+    case "B":
+        <h1>Balanza Bobina</h1>
+        break;
+    case "F":
+        <h1>Balanza Fardo</h1>
+        break;
+    case "S":
+        <h1>Balanza Scrap</h1>
+        break;
+    case "R":
+        <h1>Balanza Refile</h1>
+        break;
+    case "D":
+        <h1>Devoluciones</h1>
+        break;
+    default:
+        <h1></h1>
+        break;
+}
+
+@if(TipoBalanza !="X")
+{
+    <EditForm Model="BalanzaF">
+        <DataAnnotationsValidator />
+        <div class="form-group">
+            <label>Empleado:</label>
+            <div class="col-md-2 col-sm-3">
+                <InputText class="form-control" @bind-Value="@BalanzaF.Empleado" disabled="@alwaysDisabled" />
+                <ValidationMessage For="@(() => BalanzaF.Empleado)" />
+            </div>
+        </div>
+        <div class="form-row col-md-6">
+            <div class="form-group col">
+                <label>Orden Trabajo:</label>
+                <div class="form-inline">
+                    <InputSelect class="form-control mb-2" @bind-Value="@BalanzaF.Serie">
+                        <option value="">--</option>
+                        @foreach (var item in Series)
+                        {
+                            @if (item.Code == BalanzaF.Serie)
+                            {
+                                <option selected value="@item.Code">@item.Name</option>
+                            }
+                            else
+                            {
+                                <option value="@item.Code">@item.Name</option>
+                            }
+                        }
+                    </InputSelect>
+                    <InputText class="form-control mb-2" @bind-Value="@BalanzaF.DocNum" @onfocusout="CargarOrden" />
+                    <p>Tiempo Aprox.: @BalanzaF.Tiempo</p>
+
+                </div>
+            </div>
+            <div class="form-group col">
+                <label>Etapa:</label>
+                <div>
+                    <InputSelect class="form-control" disabled="@disabled" ValueChanged="@((string value) => EtapaHasChanged(value))" ValueExpression="@(() => BalanzaF.Etapa)" Value="@BalanzaF.Etapa">
+                        <option value="">--</option>
+                        @foreach (var item in Etapas)
+                        {
+                            @if (item.Code == BalanzaF.Etapa)
+                            {
+                                <option selected value="@item.Code">@item.Name</option>
+                            }
+                            else
+                            {
+                                <option value="@item.Code">@item.Name</option>
+                            }
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+        </div>
+        <div class="form-row col-md-12">
+            <div class="form-group col-lg-4 col-sm-4">
+                <label>Cliente:</label>
+                <div class="">
+                    <InputText class="form-control" @bind-Value="@BalanzaF.Cliente" disabled="@alwaysDisabled" />
+                </div>
+            </div>
+            <div class="form-group col-lg-4 col-sm-4">
+                <label>Impresion:</label>
+                <div class="">
+                    <InputText class="form-control" @bind-Value="@BalanzaF.Impresion" disabled="@alwaysDisabled" />
+                </div>
+            </div>
+            <div class="form-group col-lg-4 col-sm-4">
+                <label>Medida:</label>
+                <div class="">
+                    <InputText class="form-control" @bind-Value="@BalanzaF.Medida" disabled="@alwaysDisabled" />
+                </div>
+            </div>
+        </div>
+        @if (TipoBalanza == "B" || TipoBalanza == "F")
+        {
+            <div class="form-row col-md-12">
+                <div class="form-group col-lg-4 col-sm-4">
+                    <label>Codigo Articulo:</label>
+                    <div class="">
+                        <InputText class="form-control" @bind-Value="@BalanzaF.FinalItemCode" disabled="@alwaysDisabled" />
+                    </div>
+                </div>
+                <div class="form-group col-lg-8 col-sm-8">
+                    <label>Descripción Producto terminado:</label>
+                    <div class="">
+                        <InputText class="form-control" @bind-Value="@BalanzaF.FinalItemName" disabled="@alwaysDisabled" />
+                    </div>
+                </div>
+
+            </div>
+        }
+        <div class="form-row col-md-12">
+            <div class="form-group col-md-2 col-sm-4">
+                <label> Recurso/Maquina:</label>
+                <div class="">
+                    <InputSelect tabindex="0" class="form-control" disabled="@disabledEtapa" ValueChanged="@((string value) => MaquinaHasChanged(value))" ValueExpression="@(() => BalanzaF.RecursoMaquina)" Value="@BalanzaF.RecursoMaquina">
+                        @foreach (var item in Maquinas)
+                        {
+                            @if (item.Code == BalanzaF.RecursoMaquina || Maquinas.Count == 1)
+                            {
+                                <option selected value="@item.Code">@item.Name</option>
+                            }
+                            else
+                            {
+
+                                <option value="@item.Code">@item.Name</option>
+                            }
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+            <div class="form-group col-lg-7  col-sm-7">
+                <label>_</label>
+                <div class="">
+                    <InputText class="form-control" @bind-Value="@BalanzaF.DescRecurso" disabled="@alwaysDisabled" />
+                </div>
+            </div>
+        </div>
+
+        <div class="form-row col-md-12">
+            <div class="form-group col-md-2 col-sm-4">
+                <label>Artículo:</label>
+                <div class="">
+                    <InputSelect tabindex="0" class="form-control" disabled="@disabledEtapa" ValueChanged="@((string value) => ArticuloHasChanged(value))" ValueExpression="@(() => BalanzaF.ItemCode)" Value="@BalanzaF.ItemCode">
+                        @foreach (var item in Articulos)
+                        {
+                            @if (item.Code == BalanzaF.ItemCode || Articulos.Count == 1)
+                            {
+                                <option selected value="@item.Code">@item.Name</option>
+                            }
+                            else
+                            {
+                                <option value="@item.Code">@item.Name</option>
+                            }
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+            <div class="form-group col-lg-7 col-sm-7">
+                <label>_</label>
+                <div class="">
+                    <InputText class="form-control" @bind-Value="@BalanzaF.ItemName" disabled="@alwaysDisabled" />
+                </div>
+            </div>
+            <div class="form-group col-lg-1 col-sm-1">
+                <label>Unidad</label>
+                <div class="">
+                    <InputText class="form-control" @bind-Value="@BalanzaF.Unit" disabled="@alwaysDisabled" />
+                    
+                </div>
+            </div>
+
+        </div>
+
+        <div class="form-group offset-md-2 offset-sm-0">
+            <div class="form-row">
+                <div class="form-group col-md-2 col-sm-4">
+                    <label>Unidad Alternativa:</label>
+                    <div class="">
+                        <InputSelect tabindex="1" class="form-control" @bind-Value="@BalanzaF.AltUnit" disabled="@disabledEtapaMR">
+                            <option value="">--</option>
+                            @foreach (var item in UnidadesAlternativas)
+                            {
+                                @if (item.Code == BalanzaF.AltUnit)
+                                {
+                                    <option selected value="@item.Code">@item.Name</option>
+                                }
+                                else
+                                {
+                                    <option value="@item.Code">@item.Name</option>
+                                }
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+                <div class="form-group col-lg-2 col-sm-4">
+                    <label>Cantidad</label>
+                    <div class="">
+                        <InputNumber tabindex="2" class="form-control" @bind-Value="@BalanzaF.Cantidad" disabled="@disabledEtapaMR" />
+                    </div>
+                </div>
+                @if (TipoBalanza == "D")
+                {
+                    <div class="form-group col-md-2 col-sm-4">
+                        <label>Lotes:</label>
+                        <div class="">
+                            <InputSelect class="form-control" @bind-Value="@BalanzaF.Lote" disabled="@disabledEtapa">
+                                <option value="">--</option>
+                                @foreach (var item in Lotes)
+                                {
+                                    @if (item.Code == BalanzaF.Lote)
+                                    {
+                                        <option selected value="@item.Code">@item.Name</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@item.Code">@item.Name</option>
+                                    }
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                }
+                else
+                {
+
+                    @if (TipoBalanza != "F")
+                    {
+                        <div class="form-group col-md-2 col-sm-4">
+                            <label>Tipo Material:</label>
+
+                            <div class="">
+
+                                <InputSelect tabindex="3" class="form-control" @bind-Value="@BalanzaF.TipoMaterial" disabled="@disabledEtapa">
+                                    <option value="">--</option>
+                                    @foreach (var item in TipoMateriales)
+                                    {
+                                        @if (item.Code == BalanzaF.TipoMaterial)
+                                        {
+                                            <option selected value="@item.Code">@item.Name</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="@item.Code">@item.Name</option>
+                                        }
+                                    }
+                                </InputSelect>
+
+
+                            </div>
+                        </div>
+                    }
+                    @if (TipoBalanza == "B")
+                    {
+                        <div class="form-group col-md-2 col-sm-4">
+                            <label>Medida</label>
+                            <div class="">
+                                <InputText tabindex="4" class="form-control" @bind-Value="@BalanzaF.MedidaMan" disabled="@disabledEtapa" />
+                            </div>
+                        </div>
+                        <div class="form-group col-md-2 col-sm-4">
+                            <label>Espesor</label>
+                            <div class="">
+                                <InputText tabindex="5" class="form-control" @bind-Value="@BalanzaF.EspesorMan" disabled="@disabledEtapa" />
+                            </div>
+                        </div>
+                        <div class="form-group col-md-2 col-sm-4">
+                            <label>Destino</label>
+                            <div class="">
+                                <InputText tabindex="6" class="form-control" @bind-Value="@BalanzaF.RutaDestino" disabled="@disabledEtapa" />
+                                @* <InputSelect class="form-control" @bind-Value="@BalanzaF.Unit" disabled="@disabledEtapa">
+                                    <option value="">--</option>
+                                    @foreach (var item in EtapasList)
+                                    {
+                                        @if (item.Code == BalanzaF.Unit)
+                                        {
+                                            <option selected value="@item.Code">@item.Name</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="@item.Code">@item.Name</option>
+                                        }
+                                    }
+                                </InputSelect> *@
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        @*@if (TipoBalanza != "F")
+    {*@
+        <div class="form-row col-md-6">
+            <div class="form-group col-md-4">
+                <label>Tara:</label>
+                <div>
+                    <InputNumber tabindex="7" class="form-control" style="text-align:right;" @bind-Value="@BalanzaF.Tara" disabled="@disabledEtapa" />
+
+                </div>
+            </div>
+            <div class="form-group col-md-8">
+                <label>Peso:</label>
+                <div class="form-row">
+                    <div>
+                        <InputNumber tabindex="8" class="form-control" style="text-align:right;" @bind-Value="@BalanzaF.PesoBruto" disabled="@alwaysDisabled" />
+                    </div>
+                    @if (AUTH_B_Peso)
+                    {
+                        <div>
+                            <button type="button" class="btn btn-outline-info mb-2" @onclick="SincronizarBalanza" disabled="@disabledEtapa">Sincronizar Balanza</button>
+                        </div>
+                    }
+
+                </div>
+            </div>
+
+        </div>
+
+        @*  }*@
+        <div class="form-row float-right">
+            @*<button type="button" class="btn btn-secondary mb-2" @onclick="AddBalanza" disabled="@disabledEtapa">Añadir</button>*@
+            <button type="button" class="btn btn-warning" tabindex="8" @onclick="CleanForm">Limpiar</button>
+        </div>
+
+    </EditForm>
+}
+
+<ListadoBalanza DetallesBalanza="DetallesBalanza" TipoBalanza=@TipoBalanza Etapa=@BalanzaF.Etapa LoadDetalles="LoadDetalles" />
+@if (DetallesBalanza.Count > 0)
+{
+    <div class="form-row  float-right">
+        @*<button type="button" class="btn btn-secondary mb-2" @onclick="PrintParte" disabled="@disabledEtapa"><span title="Imprimir Parte" class="oi oi-print" aria-hidden="true"></span></button>*@
+        @if (AUTH_B_Part)
+        {<button type="button" class="btn btn-secondary mb-2" @onclick="AddParte" disabled="@disabledEtapa">Generar Parte de Entrega</button>}
+        @if (AUTH_B_Cali)
+        {<button type="button" class="btn btn-secondary mb-2" @onclick="AddCalidad" disabled="@disabledEtapa">Aprobar Calidad</button>}
+        @if (AUTH_B_ESap)
+        {<button type="button" class="btn btn-primary mb-2" @onclick="AddSAP" disabled="@disabledEtapa"> Enviar a SAP</button>}
+
+    </div>
+}
+@code{
+    [Parameter] public string TipoBalanza { get; set; }
+    private Bal_Head BalanzaF = new Bal_Head();
+    private bool disabled;
+    private bool alwaysDisabled;
+    private bool disabledEtapa;
+    private bool disabledEtapaMR;
+    private List<GenericEnt> UnidadesAlternativas = new List<GenericEnt>();
+    private List<GenericEnt> TipoMateriales = new List<GenericEnt>();
+    private List<Genericlote> Lotes = new List<Genericlote>();
+    private List<GenericEnt> Series = new List<GenericEnt>();
+    private List<GenericEnt> EtapasList = new List<GenericEnt>();
+
+    private List<GenericEnt> Articulos = new List<GenericEnt>();
+    private List<GenericEnt> Maquinas = new List<GenericEnt>();
+    private List<GenericEnt> Etapas = new List<GenericEnt>();
+    public List<Bal_Det> DetallesBalanza = new List<Bal_Det>();
+    public ClaimsPrincipal userCheck;
+    public bool AUTH_B_Peso = false;
+    public bool AUTH_B_Del = false;
+    public bool AUTH_B_Cali = false;
+    public bool AUTH_B_ESap = false;
+    public bool AUTH_B_Part = false;
+    TimeSpan contador;
+    bool is_counting = false;
+
+
+    private async Task SincronizarBalanza()
+    {
+        bool agregar = true;
+        disabledEtapa = true;
+        try
+        {
+            var httpResponse = await Http.GetStringAsync($"http://localhost:31415/balanza");
+            BalanzaF.PesoBruto = decimal.Parse(httpResponse.Replace(".", ","));
+            if (BalanzaF.Tara == 0 && !(TipoBalanza == "S" || TipoBalanza == "R"))
+            {
+                agregar = await js.InvokeAsync<bool>("confirm", "No tiene tara, ¿Desea agregar?");
+            }
+            if (agregar) await AddBalanza();
+        }
+        catch (Exception)
+        {
+        }
+        finally
+        {
+            disabledEtapa = false;
+        }
+
+    }
+
+    private async Task CleanForm()
+    {
+        var serieT = BalanzaF.Serie;
+        BalanzaF = new Bal_Head();
+        OnParametersSetAsync();
+        //var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        //var user = authState.User;
+        BalanzaF.Empleado = userCheck.Identity.Name;
+        BalanzaF.Serie = DateTime.Now.Year.ToString();
+        BalanzaF.Serie = serieT;
+    }
+    private async Task AddBalanza()
+    {
+
+        Bal_Det BalanzaD = new Bal_Det();
+        BalanzaD.Numero = GetNumero();
+        BalanzaD.NroOrden = BalanzaF.NroOrden;
+        BalanzaD.ItemCode = BalanzaF.ItemCode;
+        BalanzaD.ItemName = BalanzaF.ItemName;
+        BalanzaD.Tara = BalanzaF.Tara;
+        BalanzaD.PesoBruto = BalanzaF.PesoBruto;
+        BalanzaD.PesoNeto = BalanzaF.PesoBruto - BalanzaF.Tara;
+        BalanzaD.Cantidad = BalanzaF.Cantidad;
+        BalanzaD.Fecha = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day);
+        BalanzaD.Hora = DateTime.Now;
+        BalanzaD.tipo = TipoBalanza;
+        BalanzaD.Etapa = BalanzaF.Etapa;
+        BalanzaD.Unit = BalanzaF.Unit;
+        BalanzaD.AltUnit = BalanzaF.AltUnit;
+        BalanzaD.RecursoMaquina = BalanzaF.RecursoMaquina;
+        BalanzaD.DescRecurso = BalanzaF.DescRecurso;
+        BalanzaD.material = BalanzaF.TipoMaterial;
+        BalanzaD.lote = BalanzaF.Lote;
+        BalanzaD.medidaMan = BalanzaF.MedidaMan;
+        BalanzaD.destinoMan = BalanzaF.RutaDestino;
+        BalanzaD.espesorMan = BalanzaF.EspesorMan;
+
+        var httpResponse = await repositorio.Post("api/balanza/addBalanza", BalanzaD);
+        if (httpResponse.Error)
+        {
+            var body = await httpResponse.GetBody();
+            await mostrarMensajes.MostrarMensajeError(body);
+        }
+        else
+        {
+            //BalanzaD.codigoInterno = httpResponse.Response.ToString();
+            await LoadDetalles(BalanzaF.Etapa);
+            //DetallesBalanza.Add(BalanzaD);
+        }
+    }
+
+
+    private string GetNumero()
+    {
+        string num = "1";
+        bool exist = false;
+        if (DetallesBalanza.Count > 0)
+        {
+            var Listaanulados = DetallesBalanza.Where(x => x.status == "X").ToList();
+            foreach (var anul in Listaanulados)
+            {
+                exist = false;
+                foreach (var normal in DetallesBalanza.Where(x => x.status != "X").ToList())
+                {
+                    if (normal.Numero == anul.Numero)
+                    {
+                        exist = true;
+                        break;
+                    }
+                }
+                if (!exist) return int.Parse(anul.Numero).ToString();
+            }
+            num = (int.Parse(DetallesBalanza.Last().Numero) + 1).ToString();
+        }
+
+        return num;
+    }
+    private async Task AddSAP()
+    {
+        disabledEtapa = true;
+        try
+        {
+            Bal_Det BalAux = new Bal_Det();
+            BalAux.codigoInterno = DetallesBalanza[0].codigoInterno;
+            var httpResponse = await repositorio.Post("api/balanza/addSap", BalAux);
+            if (httpResponse.Error)
+            {
+                var body = await httpResponse.GetBody();
+                await mostrarMensajes.MostrarMensajeError(body);
+            }
+            else
+            {
+                await mostrarMensajes.MostrarMensajeExitoso("Entrega realizada correctamente en SAP.");
+                await LoadDetalles(BalanzaF.Etapa);
+            }
+        }
+        catch (Exception)
+        {
+        }
+        finally
+        {
+            disabledEtapa = false;
+        }
+    }
+
+    private async Task AddParte()
+    {
+        Bal_Det BalAux = new Bal_Det();
+        BalAux.codigoInterno = DetallesBalanza[0].codigoInterno;
+        var httpResponse = await repositorio.Post("api/balanza/addParte", BalAux);
+        if (httpResponse.Error)
+        {
+            var body = await httpResponse.GetBody();
+            await mostrarMensajes.MostrarMensajeError(body);
+
+        }
+        else
+        {
+            await mostrarMensajes.MostrarMensajeExitoso("Parte entrega registrado.\r\n *Aún no se realizá transacción en SAP");
+            var idPE = await httpResponse.GetBody();
+            var bytes = await Http.GetByteArrayAsync($"api/balanza/generaParteEntrega/{idPE}");
+
+            //await js.InvokeVoidAsync(
+            //    "downloadFromByteArray",
+            //    new
+            //    {
+            //        ByteArray = bytes,
+            //        FileName = "ParteEntrega.PDF",
+            //        ContentType = "application/pdf"
+            //    });
+            await js.InvokeVoidAsync("printAux", new { ByteArray = bytes });
+            await LoadDetalles(BalanzaF.Etapa);
+        }
+    }
+    private async Task PrintParte()
+    {
+
+        var bytes = await Http.GetByteArrayAsync($"api/balanza/generaParteEntrega/{DetallesBalanza[0].parteEntrega}");
+
+        //await js.InvokeVoidAsync(
+        //    "downloadFromByteArray",
+        //    new
+        //    {
+        //        ByteArray = bytes,
+        //        FileName = "ParteEntrega.PDF",
+        //        ContentType = "application/pdf"
+        //    });
+        await js.InvokeVoidAsync("printAux", new { ByteArray = bytes });
+        await LoadDetalles(BalanzaF.Etapa);
+
+    }
+
+    private async Task AddCalidad()
+    {
+        Bal_Det BalAux = new Bal_Det();
+        BalAux.codigoInterno = DetallesBalanza[0].codigoInterno;
+        var httpResponse = await repositorio.Post("api/balanza/addCalidad", BalAux);
+        if (httpResponse.Error)
+        {
+            var body = await httpResponse.GetBody();
+            await mostrarMensajes.MostrarMensajeError(body);
+
+        }
+        else
+        {
+            await mostrarMensajes.MostrarMensajeExitoso("Aprobado por calidad.\r\n *Aún no se realizá transacción en SAP");
+
+            await LoadDetalles(BalanzaF.Etapa);
+
+        }
+    }
+
+    private async Task ImprimirParteEntrega()
+    {
+
+        var bytes = await Http.GetByteArrayAsync($"api/balanza/generaParteEntrega/{BalanzaF.NroOrden}");
+
+        //await js.InvokeVoidAsync(
+        //    "downloadFromByteArray",
+        //    new
+        //    {
+        //        ByteArray = bytes,
+        //        FileName = "ParteEntrega.PDF",
+        //        ContentType = "application/pdf"
+        //    });
+        await js.InvokeVoidAsync("printAux", new { ByteArray = bytes });
+
+    }
+
+    private async Task CargarOrden()
+    {
+        if (BalanzaF.DocNum != "" && int.TryParse(BalanzaF.DocNum, out _))
+        {
+            var httpResponse = await repositorio.Get<Bal_MultiList>
+    ($"api/balanza/{BalanzaF.Serie}/{BalanzaF.DocNum}/etapas");
+            if (httpResponse.Error)
+            {
+                BalanzaF.NroOrden = "";
+                var mensajeError = await httpResponse.GetBody();
+                await mostrarMensajes.MostrarMensajeError(mensajeError);
+            }
+            {
+                if (httpResponse.Response.NroOrden != "-1")
+                {
+                    BalanzaF.NroOrden = httpResponse.Response.NroOrden;
+                    BalanzaF.Impresion = httpResponse.Response.Impresion;
+                    BalanzaF.Medida = httpResponse.Response.Medida;
+                    BalanzaF.Cliente = httpResponse.Response.Cliente;
+                    BalanzaF.FinalItemCode = httpResponse.Response.ItemCode;
+                    BalanzaF.FinalItemName = httpResponse.Response.ItemName;
+                    Etapas = httpResponse.Response.Etapas;
+                    disabled = false;
+                }
+            }
+        }
+    }
+
+    private async Task EtapaHasChanged(string value)
+    {
+
+        BalanzaF.Etapa = value;
+
+        if (value == "")
+        {
+            Articulos.Clear();
+            Maquinas.Clear();
+            DetallesBalanza.Clear();
+        }
+        else
+        {
+            TipoMateriales.Clear();
+            UnidadesAlternativas.Clear();
+            BalanzaF.DescRecurso = "";
+            BalanzaF.ItemName = "";
+            BalanzaF.Unit = "";
+            BalanzaF.Cantidad = 0;
+            BalanzaF.EspesorMan = "";
+            BalanzaF.RutaDestino = "";
+            BalanzaF.MedidaMan = "";
+            BalanzaF.Tara = 0;
+            LoadAltUnit();
+            LoadTipoMateriales();
+            await LoadDetalles(value);
+        }
+    }
+
+    private async Task ArticuloHasChanged(string value)
+    {
+
+        BalanzaF.ItemCode = value;
+        if (value != "")
+        {
+            BalanzaF.ItemName = Articulos.Where(s => s.Code == value).Select(s => s.LongDesc).FirstOrDefault();
+            BalanzaF.Unit = Articulos.Where(s => s.Code == value).Select(s => s.Unit).FirstOrDefault();
+
+            Lotes = Articulos.Where(s => s.Code == value).Select(s => s.Lotes).FirstOrDefault().ToList(); ;
+        }
+    }
+
+    private async Task MaquinaHasChanged(string value)
+    {
+
+        BalanzaF.RecursoMaquina = value;
+        if (value != "")
+        {
+            BalanzaF.DescRecurso = Maquinas.Where(s => s.Code == value).Select(s => s.LongDesc).FirstOrDefault();
+
+        }
+    }
+
+    async Task BeginCount(int tiempo)
+    {
+        contador = new TimeSpan(0, tiempo, 0);
+
+        ResumeCount();
+    }
+
+    async Task ResumeCount()
+    {
+        is_counting = true;
+        while (is_counting)
+        {
+            await Task.Delay(1000);
+            if (is_counting)
+            {
+                contador = contador.Add(new TimeSpan(0, 0, 1));
+                BalanzaF.Tiempo = string.Format("{0}:{1}:{2}",
+           ((int)contador.TotalHours), contador.Minutes, contador.Seconds);
+                StateHasChanged();
+            }
+        }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        disabled = true;
+        disabledEtapa = true;
+        alwaysDisabled = true;
+
+        //await Task.Delay(2000);
+        await LoadAltUnit();
+        await LoadSeries();
+        // await LoadEtapas();
+
+        await LoadTipoMateriales();
+        await BeginCount(0);
+
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        BalanzaF = new Bal_Head();
+        disabled = true;
+        disabledEtapa = true;
+        disabledEtapaMR = true;
+        alwaysDisabled = true;
+        Articulos.Clear();
+        Maquinas.Clear();
+        DetallesBalanza.Clear();
+        BalanzaF.Serie = Series.Where(s => s.Name == DateTime.Now.Year.ToString()).Select(s => s.Code).FirstOrDefault();
+        if (TipoBalanza.Equals("F")) BalanzaF.AltUnit = UnidadesAlternativas.Where(s => s.Code == "MLL").Select(s => s.Code).FirstOrDefault();
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        userCheck = authState.User;
+        BalanzaF.Empleado = userCheck.Identity.Name;
+
+        AUTH_B_Peso = userCheck.FindFirst("AUTH_B_Peso").Value.Equals("Y");
+        AUTH_B_Del = userCheck.FindFirst("AUTH_B_Del").Value.Equals("Y");
+        AUTH_B_Cali = userCheck.FindFirst("AUTH_B_Cali").Value.Equals("Y");
+        AUTH_B_ESap = userCheck.FindFirst("AUTH_B_ESap").Value.Equals("Y");
+        AUTH_B_Part = userCheck.FindFirst("AUTH_B_Part").Value.Equals("Y");
+
+    }
+
+    public List<Bal_Head>
+        ObtenerDetalles()
+    {
+        return new List<Bal_Head>
+            ()
+        {
+        };
+    }
+
+    private async Task LoadAltUnit()
+    {
+        var httpResponse = await repositorio.Get<List<GenericEnt>>("api/balanza/altUnit");
+        UnidadesAlternativas = httpResponse.Response;
+    }
+
+    private async Task LoadSeries()
+    {
+        var httpResponse = await repositorio.Get<List<GenericEnt>>("api/balanza/series");
+        Series = httpResponse.Response;
+    }
+    private async Task LoadEtapas()
+    {
+        var httpResponse = await repositorio.Get<List<GenericEnt>>("api/balanza/listetapas");
+        EtapasList = httpResponse.Response;
+    }
+    private async Task LoadTipoMateriales()
+    {
+        var httpResponse = await repositorio.Get<List<GenericEnt>>("api/balanza/tipoMat");
+        TipoMateriales = httpResponse.Response;
+    }
+
+    async Task LoadDetalles(string etapa)
+    {
+        var httpResponse = await repositorio.Get<Bal_MultiList>($"api/balanza/{BalanzaF.NroOrden}/{etapa}/{TipoBalanza}/detalleEtapa");
+        if (httpResponse.Error)
+        {
+            var mensajeError = await httpResponse.GetBody();
+            await mostrarMensajes.MostrarMensajeError(mensajeError);
+        }
+        {
+
+            Articulos.Clear();
+            Maquinas.Clear();
+            DetallesBalanza.Clear();
+
+            if (httpResponse.Response.Articulos.Count > 0)
+            {
+
+                Articulos = httpResponse.Response.Articulos;
+                Maquinas = httpResponse.Response.Maquinas;
+                DetallesBalanza = httpResponse.Response.Detalles;
+
+                disabledEtapa = false;
+                disabledEtapaMR = (TipoBalanza == "S" || TipoBalanza == "R") ? true : false;
+                if (Maquinas.Count > 0) { MaquinaHasChanged(Maquinas[0].Code); }
+                ArticuloHasChanged(Articulos[0].Code);
+            }
+            else
+            {
+                await mostrarMensajes.MostrarMensajeWarning("No hay articulos en la orden.");
+            }
+
+        }
+    }
+    void Mensaje()
+    {
+        Console.WriteLine($"Prueba");
+    }
+
+}

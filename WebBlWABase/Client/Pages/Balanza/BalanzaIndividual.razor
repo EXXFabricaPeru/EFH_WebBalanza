@@ -1,0 +1,112 @@
+﻿@inject AuthenticationStateProvider AuthenticationStateProvider
+<tr style="@estadoStyle">
+
+    <td>@Bal.Numero</td>
+    <td title="Ver Parte Entrega" style=@parteStyle @onclick="@(() => PrintParte.InvokeAsync(Bal))">@Bal.parteEntrega</td>
+    @*<td>@Bal.ItemCode</td>
+        <td>@Bal.ItemName</td>*@
+
+    <td class="text-right">@Bal.Tara</td>
+    <td class="text-right">@Bal.PesoBruto</td>
+    <td class="text-right">@Bal.PesoNeto</td>
+    <td class="text-right">@Bal.Cantidad</td>
+    <td class="text-center">@Bal.AltUnit</td>
+    <td class="text-center">@Bal.aproCalidad</td>
+    <td class="text-center">@Bal.Fecha.ToString("dd/MM/yyyy")</td>
+    <td>
+        @Bal.Hora.ToString("HH:mm")
+
+        @switch (Bal.status)
+        {
+            case "1":
+                <span title="Parte Generado" class="oi oi-media-stop" aria-hidden="true" style="color:wheat"></span>
+                break;
+            case "2":
+                <span title="Aprobado calidad" class="oi oi-media-stop" aria-hidden="true" style="color:cornflowerblue"></span>
+                break;
+            case "3":
+                <span title="Entregado SAP" class="oi oi-media-stop" aria-hidden="true" style="color:lightgreen"></span>
+                break;
+            case "X":
+                <span title="Anulado" class="oi oi-media-stop" aria-hidden="true" style="color: #dc3545"></span>
+                break;
+            case "O":
+                <span title="Observador" class="oi oi-media-stop" aria-hidden="true" style="color: orangered"></span>
+                break;
+            default:
+                <span title="Pendiente" class="oi oi-media-stop" aria-hidden="true" style="color:dimgray"></span>
+
+                break;
+        }
+    </td>
+    <td class="text-nowrap text-center">
+        @if (@Bal.status != "X")
+        {
+            <button type="button" class="btn btn-sm btn-icon btn-flat btn-dark" tabindex="-1" @onclick="@(() => ImprimirTicket.InvokeAsync(Bal))">
+                <span title="Imprimir Ticket" class="oi oi-print" aria-hidden="true"></span>
+            </button>
+            @if (@Bal.tipo == "B" || @Bal.tipo == "F")
+            {
+                <button type="button" class="btn btn-sm btn-icon btn-flat btn-dark" tabindex="-1" @onclick="@(() => GenerarQR.InvokeAsync(Bal))">
+                    <span title="Generar QR" class="oi oi-grid-two-up" aria-hidden="true"></span>
+                </button>
+                <button type="button" class="btn btn-sm btn-icon btn-flat btn-dark" tabindex="-1" @onclick="@(() => GenerarBarcode.InvokeAsync(Bal))">
+                    <span title="Generar Barcode" class="oi oi-media-pause" aria-hidden="true"></span>
+                </button>
+            }
+            @if (AUTH_B_Cali && (@Bal.status == "1" || @Bal.status == "2"))
+            {
+                <button type="button" class="btn btn-sm btn-icon btn-flat btn-warning" tabindex="-1" @onclick="@(() => ObservarBalanza.InvokeAsync(Bal))">
+                    <span title="Observar registro" class="oi oi-eye" aria-hidden="true"></span>
+                </button>
+            }
+            if (AUTH_B_Del && ((AUTH_B_DelPe && (@Bal.status == "1" || @Bal.status == "2")) || @Bal.status == "0"))
+            {
+                <button type="button" class="btn btn-sm btn-icon btn-flat btn-danger" tabindex="-1" @onclick="@(() => EliminarBalanza.InvokeAsync(Bal))">
+                    <span title="Eliminar registro" class="oi oi-x" aria-hidden="true"></span>
+                </button>
+            }
+        }
+    </td>
+</tr>
+
+@code {
+    [Parameter] public Bal_Det Bal { get; set; }
+    [Parameter] public bool MostrarBotones { get; set; } = false;
+    [Parameter] public EventCallback<Bal_Det> EliminarBalanza { get; set; }
+    [Parameter] public EventCallback<Bal_Det> ObservarBalanza { get; set; }
+    [Parameter] public EventCallback<Bal_Det> ImprimirTicket { get; set; }
+    [Parameter] public EventCallback<Bal_Det> PrintParte { get; set; }
+    [Parameter] public EventCallback<Bal_Det> GenerarQR { get; set; }
+    [Parameter] public EventCallback<Bal_Det> GenerarBarcode { get; set; }
+    public bool AUTH_B_Del = false;
+    public bool AUTH_B_Cali = false;
+    public bool AUTH_B_DelPe = false;
+    private string urlPelicula = string.Empty;
+    string estadoStyle = null;
+    string parteStyle = null;
+    protected override async Task OnParametersSetAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var userCheck = authState.User;
+        AUTH_B_Del = userCheck.FindFirst("AUTH_B_Del").Value.Equals("Y");
+        AUTH_B_Cali = userCheck.FindFirst("AUTH_B_Cali").Value.Equals("Y");
+        AUTH_B_DelPe = userCheck.FindFirst("AUTH_B_DelPE").Value.Equals("Y");
+
+        switch (Bal.status)
+        {
+            case "X":
+                estadoStyle = "background-color:#dc3545";
+                break;
+            case "O":
+                estadoStyle = "background-color:#f5deb3";
+                break;
+            default:
+                estadoStyle = null;
+                break;
+        }
+
+        parteStyle = (int.Parse(Bal.parteEntrega) > 0) ? "cursor:zoom-in" : null;
+
+    }
+}

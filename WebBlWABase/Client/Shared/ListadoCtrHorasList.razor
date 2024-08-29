@@ -1,0 +1,81 @@
+﻿@inject IJSRuntime js
+@inject IRepositorio repositorio
+@inject IMostrarMensajes mostrarMensajes
+<style>
+
+    .oi {
+        float: right;
+    }
+</style>
+@if (Detalle2 == null)
+{
+    <img src="https://www.certblaster.com/wp-content/uploads/2017/05/App-loading.gif" />
+    <text>Cargando</text> }
+else if (Detalle2.Count == 0)
+{
+    <p></p>
+}
+else
+{
+    <table class="table table-bordered table-hover">
+        <thead>
+            <tr>
+                <th class="text-center sort-th" @onclick="@(() => SortTable("NroOrden"))">Orden<span class="oi @(SetSortIcon("NroOrden"))"></span></th>
+                <th class="text-center sort-th" @onclick="@(() => SortTable("Etapa"))">Etapa<span class="oi @(SetSortIcon("Etapa"))"></span></th>
+                <th class="text-center sort-th" @onclick="@(() => SortTable("Fecha"))">Fecha Inicio<span class="oi @(SetSortIcon("Fecha"))"></span></th>
+                <th class="text-center sort-th" @onclick="@(() => SortTable("Hora"))">Hora Inicio<span class="oi @(SetSortIcon("Hora"))"></span></th>
+                <th class="text-center sort-th" @onclick="@(() => SortTable("Maquina"))">Maquina<span class="oi @(SetSortIcon("Maquina"))"></span></th>
+                <th class="text-center sort-th" @onclick="@(() => SortTable("Empleado"))">Empleado<span class="oi @(SetSortIcon("Empleado"))"></span></th>
+                <th class="text-center sort-th" @onclick="@(() => SortTable("Estado"))">Estado<span class="oi @(SetSortIcon("Estado"))"></span></th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (int i = 0; i < Detalle2.Count; i++)
+            {
+                <tr>
+
+                    <td class="text-center">@(Detalle2[i].NroOrden)</td>
+                    <td class="text-center">@(Detalle2[i].Etapa)</td>
+                    <td class="text-center">@Detalle2[i].Fecha.ToString("dd/MM/yyyy")</td>
+                    <td class="text-center">@Detalle2[i].Hora.ToString("HH:mm")</td>
+                    <td class="text-center">@(Detalle2[i].Maquina)</td>
+                    <td class="text-center">@(Detalle2[i].Empleado)</td>
+                    <td class="text-center">@(Detalle2[i].Estado)</td>
+
+
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+@code{  [Parameter] public List<CtrHra_Listado> Detalle2 { get; set; }
+
+    private bool isSortedAscending;
+    private string activeSortColumn;
+    private void SortTable(string columnName)
+    {
+        if (columnName != activeSortColumn)
+        {
+            Detalle2 = Detalle2.OrderBy(x => x.GetType().GetProperty(columnName).GetValue(x, null)).ToList();
+            isSortedAscending = true;
+            activeSortColumn = columnName;
+        }
+        else
+        {
+            if (isSortedAscending)
+                Detalle2 = Detalle2.OrderByDescending(x => x.GetType().GetProperty(columnName).GetValue(x, null)).ToList();
+            else
+                Detalle2 = Detalle2.OrderBy(x => x.GetType().GetProperty(columnName).GetValue(x, null)).ToList();
+
+            isSortedAscending = !isSortedAscending;
+        }
+    }
+    private string SetSortIcon(string columnName)
+    {
+        if (activeSortColumn != columnName)
+            return string.Empty;
+
+        return (isSortedAscending) ? "oi-chevron-bottom" : "oi-chevron-top";
+    
+    }
+}

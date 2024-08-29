@@ -1,0 +1,230 @@
+﻿@inject IJSRuntime js
+@inject IRepositorio repositorio
+@inject IMostrarMensajes mostrarMensajes
+@inject HttpClient HttpClient
+
+@if (DetallesBalanza == null)
+{
+    <img src="https://www.certblaster.com/wp-content/uploads/2017/05/App-loading.gif" />
+    <text>Cargando</text> }
+else if (DetallesBalanza.Count == 0)
+{
+    <p></p> }
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Nro.</th>
+                <th>PE</th>
+                @*<th>Articulo</th>
+                    <th>Descripción</th>*@
+                <th class="text-center">Tara</th>
+                <th class="text-center">Peso Bruto</th>
+                <th class="text-center">Peso Neto</th>
+                <th class="text-center">Cantidad</th>
+                <th class="text-center">Und. Alt.</th>
+                <th class="text-center">Ap. Calidad</th>
+                <th class="text-center">Fecha</th>
+                <th class="text-center">Hora</th>
+                <th class="text-center">Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (int i = 0; i < DetallesBalanza.Count; i++)
+            {
+                <BalanzaIndividual Bal="DetallesBalanza[i]" EliminarBalanza="EliminarBalanza" ObservarBalanza="ObservarBalanza" PrintParte="PrintParte" ImprimirTicket="Imprimir" GenerarQR="GenerarQR" GenerarBarcode="GenerarBarcode" />
+            }
+
+        </tbody>
+        @if (DetallesBalanza.Count > 0)
+        {
+            <tfoot>
+                <tr>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th class="text-right">Total general:</th>
+                    <th class="text-right">@pesoNeto</th>
+                    <th class="text-right">Total pendiente:</th>
+                    <th class="text-right">@pesoPendiente</th>
+                    <th></th>
+                    <th></th>
+                    @*<th></th>*@
+                    <th></th>
+                </tr>
+            </tfoot>
+        }
+
+    </table>}
+@code{
+    [Parameter] public string TipoBalanza { get; set; }
+    [Parameter] public string Etapa { get; set; }
+    [Parameter] public List<Bal_Det> DetallesBalanza { get; set; }
+    [Parameter] public EventCallback<string> LoadDetalles { get; set; }
+    private decimal sumaTara = 0;
+    private decimal pesoBruto = 0;
+    private decimal pesoNeto = 0;
+    private decimal pesoPendiente = 0;
+    private decimal cantidad = 0;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        DetallesBalanza.OrderBy(x => x.codigoInterno).ToList();
+        await Recalcular();
+    }
+
+    async Task EliminarBalanza(Bal_Det bal)
+    {
+        bool elim = true;
+        if (bal.status.Equals("3"))
+        {
+            await mostrarMensajes.MostrarMensajeWarning("Ya esta entregado, anular en SAP.");
+        }
+        else
+        {
+            elim = await js.InvokeAsync<bool>("confirm", "¿Seguro que desea anular?");
+            if (elim)
+            {
+                var responseHttp = await repositorio.Get<bool>($"api/balanza/remove/{bal.codigoInterno}");
+                bal.status = "X";
+                await LoadDetalles.InvokeAsync(Etapa);
+                await Recalcular();
+            }
+
+        }
+
+    }
+    async Task ObservarBalanza(Bal_Det bal)
+    {
+        bool elim = true;
+        if (bal.status.Equals("3"))
+        {
+            await mostrarMensajes.MostrarMensajeWarning("Ya esta entregado, no se puede observar.");
+        }
+        else
+        {
+            elim = await js.InvokeAsync<bool>("confirm", "¿Desea marcar observacion?");
+            if (elim)
+            {
+                var responseHttp = await repositorio.Get<bool>($"api/balanza/observar/{bal.codigoInterno}");
+                bal.status = "O";
+                await Recalcular();
+            }
+
+        }
+
+    }
+
+    async Task Imprimir(Bal_Det bal)
+    {
+
+        var bytes = await HttpClient.GetByteArrayAsync($"api/balanza/generaEtiquetaPDF/{bal.codigoInterno}/{TipoBalanza}");
+
+        //await js.InvokeVoidAsync(
+        //    "downloadFromByteArray",
+        //    new
+        //    {
+        //        ByteArray = bytes,
+        //        FileName = codigoPDF(bal.codigoInterno) +".PDF",
+        //        ContentType = "application/pdf"
+        //    });
+        await js.InvokeVoidAsync("printAux", new { ByteArray = bytes });
+    }
+
+    async Task PrintParte(Bal_Det bal)
+    {
+        if (int.Parse(bal.parteEntrega) > 0)
+        {
+            var bytes = await HttpClient.GetByteArrayAsync($"api/balanza/generaParteEntrega/{bal.parteEntrega}");
+
+            //await js.InvokeVoidAsync(
+            //    "downloadFromByteArray",
+            //    new
+            //    {
+            //        ByteArray = bytes,
+            //        FileName = "ParteEntrega.PDF",
+            //        ContentType = "application/pdf"
+            //    });
+            await js.InvokeVoidAsync("printAux", new { ByteArray = bytes });
+        }
+
+    }
+    string codigoPDF(string code)
+    {
+        string msg = "";
+        switch (TipoBalanza)
+        {
+            case "B":
+                msg = "bobina";
+                break;
+            case "S":
+                msg = "merma";
+                break;
+            case "R":
+                msg = "refile";
+                break;
+            case "D":
+                msg = "devolucion";
+                break;
+            case "F":
+                msg = "fardo";
+                break;
+
+        }
+        return msg + "_" + code;
+    }
+
+    async Task GenerarQR(Bal_Det bal)
+    {
+
+        var bytes = await HttpClient.GetByteArrayAsync($"api/balanza/generaQR/{bal.codigoInterno}");
+
+        //await js.InvokeVoidAsync(
+        //    "downloadFromByteArray",
+        //    new
+        //    {
+        //        ByteArray = bytes,
+        //        FileName = "QR.PDF",
+        //        ContentType = "application/pdf"
+        //    });
+        await js.InvokeVoidAsync("printAux", new { ByteArray = bytes });
+
+    }
+
+    async Task GenerarBarcode(Bal_Det bal)
+    {
+
+        var bytes = await HttpClient.GetByteArrayAsync($"api/balanza/generaBarcode/{bal.codigoInterno}");
+
+        //await js.InvokeVoidAsync(
+        //    "downloadFromByteArray",
+        //    new
+        //    {
+        //        ByteArray = bytes,
+        //        FileName = "Barcode.PDF",
+        //        ContentType = "application/pdf"
+        //    });
+        await js.InvokeVoidAsync("printAux", new { ByteArray = bytes });
+    }
+
+    async Task Recalcular()
+    {
+        sumaTara = 0;
+        pesoBruto = 0;
+        pesoNeto = 0;
+        cantidad = 0;
+        pesoPendiente = 0;
+        foreach (var bal in DetallesBalanza)
+        {
+            sumaTara += bal.Tara;
+            pesoBruto += bal.PesoBruto;
+            if (!bal.status.Equals("X"))
+                pesoNeto += bal.PesoNeto;
+            cantidad += bal.Cantidad;
+            if (bal.status.Equals("0"))
+                pesoPendiente += bal.PesoNeto;
+        }
+    }
+
+}

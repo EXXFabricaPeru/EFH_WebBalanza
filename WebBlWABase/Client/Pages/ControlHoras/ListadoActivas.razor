@@ -1,0 +1,77 @@
+﻿@page "/listadoControl"
+@attribute [Authorize]
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IRepositorio repositorio
+@inject HttpClient Http
+@inject IMostrarMensajes mostrarMensajes
+
+<h1>Listado maquinas activas</h1>
+<EditForm Model="Ctrhead">
+    <DataAnnotationsValidator />
+    <div class="form-group">
+        <label>Empleado:</label>
+        <div class="col-md-4 col-sm-6">
+            <InputText class="form-control" @bind-Value="@Ctrhead.Empleado" disabled="@alwaysDisabled" />
+            <ValidationMessage For="@(() => Ctrhead.Empleado)" />
+        </div>
+    </div>
+
+    <div class="form-row  col-md-12">
+        <ListadoCtrHorasList Detalle2="DetallesHoras" />
+    </div>
+
+</EditForm>
+
+
+@code{
+    private CtrHra_Head Ctrhead = new CtrHra_Head();
+    private bool disabled;
+    private bool alwaysDisabled;
+    private bool disabledEtapa;
+    private bool disabledIniciar;
+    private bool disabledFin;
+    private bool disabledTipo = true;
+    private bool disabledMotivo = true;
+    public List<CtrHra_Listado> DetallesHoras = new List<CtrHra_Listado>();
+    private List<GenericEnt> Series = new List<GenericEnt>();
+    TimeSpan contador;
+    bool is_counting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        disabled = true;
+        disabledEtapa = true;
+        alwaysDisabled = true;
+        disabledIniciar = true;
+        disabledFin = true;
+        //await Task.Delay(2000);
+        await LoadSeries();
+        await LoadListado();
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        Ctrhead.Empleado = user.Identity.Name;
+
+    }
+    private async Task LoadSeries()
+    {
+        var httpResponse = await repositorio.Get<List<GenericEnt>>("api/balanza/series");
+        Series = httpResponse.Response;
+        Ctrhead.Serie = Series.Where(s => s.Name == "2021").Select(s => s.Code).FirstOrDefault();
+
+    }
+
+    private async Task LoadListado()
+    {
+        var httpResponse = await repositorio.Get<List<CtrHra_Listado>>("api/ctrlTime/listadoActivos");
+        DetallesHoras = httpResponse.Response;
+    }
+
+    void Mensaje()
+    {
+        Console.WriteLine($"Prueba");
+    }
+
+}

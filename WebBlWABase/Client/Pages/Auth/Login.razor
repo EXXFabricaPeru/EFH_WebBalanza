@@ -1,0 +1,52 @@
+﻿@page "/login"
+
+@inject IRepositorio repositorio
+@inject NavigationManager navigationManager
+@inject ILoginService loginService
+@inject IMostrarMensajes mostrarMensajes
+
+@using EFHBlazzer.Client.Auth
+<div class="col-lg-4 offset-lg-4 col-md-8 offset-md-2">
+    <h3>Inicio de Sesión</h3>
+
+    <EditForm Model="@userInfo" OnValidSubmit="LoginUsuario">
+        <DataAnnotationsValidator />
+
+        <div class="form-group">
+            <label>Usuario:</label>
+            <div>
+                <InputText Class="form-control" @bind-Value="@userInfo.User" />
+                <ValidationMessage For="@(() => userInfo.User)" />
+            </div>
+        </div>
+
+        @*<div class="form-group">
+            <label>Contraseña:</label>
+            <div>
+                <InputPassword Class="form-control" @bind-Value="@userInfo.Password" />
+                <ValidationMessage For="@(() => userInfo.Password)" />
+            </div>
+        </div>*@
+
+        <button type="submit" class="btn btn-primary">Login</button>
+
+    </EditForm>
+</div>
+@code {
+    private UserInfo userInfo = new UserInfo();
+
+    private async Task LoginUsuario()
+    {
+        var httpResponse = await repositorio.Post<UserInfo, UserToken>("api/cuentas/login", userInfo);
+
+        if (httpResponse.Error)
+        {
+            await mostrarMensajes.MostrarMensajeError(await httpResponse.GetBody());
+        }
+        else
+        {
+            await loginService.Login(httpResponse.Response);
+            navigationManager.NavigateTo("");
+        }
+    }
+}

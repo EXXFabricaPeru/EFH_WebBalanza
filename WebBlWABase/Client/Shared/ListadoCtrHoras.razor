@@ -1,0 +1,37 @@
+﻿@inject IJSRuntime js
+@inject IRepositorio repositorio
+@inject IMostrarMensajes mostrarMensajes
+
+@if (Detalle == null)
+{
+<img src="https://www.certblaster.com/wp-content/uploads/2017/05/App-loading.gif" />
+                <text>Cargando</text> }
+            else if (Detalle.Count == 0)
+            {
+<p></p> 
+}
+else
+{
+<table class="table">
+    <thead>
+        <tr>
+            <th class="text-center">Tipo</th>
+            <th class="text-center">Fecha</th>
+            <th class="text-center">Hora</th>
+        </tr>
+    </thead>
+    <tbody>
+        @for (int i = 0; i < Detalle.Count; i++)
+        {
+            <tr>
+
+                <td class="text-center">@(Detalle[i].Tipo=="01"?"Inicio":"Fin")</td>
+                <td class="text-center">@Detalle[i].Fecha.ToString("dd/MM/yyyy")</td>
+                <td class="text-right">@Detalle[i].Hora.ToString("HH:mm")</td>
+
+            </tr>
+        }
+    </tbody>
+</table>
+}
+@code{ [Parameter] public List<CtrHra_Detail> Detalle { get; set; } }
